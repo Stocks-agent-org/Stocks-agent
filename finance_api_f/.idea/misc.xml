@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.11 (finance_api_f)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (finance_api_f)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="torch" project-jdk-type="Python SDK" />
 </project>
