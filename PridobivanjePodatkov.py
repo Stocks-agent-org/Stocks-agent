@@ -4,19 +4,22 @@ from tkinter import messagebox
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from pymongo import MongoClient  # <-- Dodano
+
+# MongoDB povezava
+client = MongoClient("mongodb+srv://haracicervin:<PASSWORD>@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")  # Uporabi svojo povezavo če uporabljaš MongoDB Atlas
+db = client["delnice_db"]
+collection = db["podatki_o_delnicah"]
 
 API_KEY = "API_KEY"
-# Pridobil sem ga iz : https://www.alphavantage.co
 BASE_URL = "https://www.alphavantage.co/query"
 
-# Funkcija za pridobivanje podatkov
 def get_stock_data():
-    stock_symbol = entry.get().upper() 
+    stock_symbol = entry.get().upper()
     if not stock_symbol:
         messagebox.showwarning("Napaka", "Prosim, vnesite simbol delnice!")
         return
 
-    # Parametri API klica
     params = {
         "function": "TIME_SERIES_INTRADAY",
         "symbol": stock_symbol,
@@ -24,7 +27,6 @@ def get_stock_data():
         "apikey": API_KEY
     }
 
-    # Pošlji zahtevo
     response = requests.get(BASE_URL, params=params)
 
     if response.status_code == 200:
@@ -32,18 +34,32 @@ def get_stock_data():
         time_series = data.get("Time Series (5min)", {})
 
         if time_series:
-            timestamps = list(time_series.keys())[:5] 
+            timestamps = list(time_series.keys())[:5]
             prices = [float(time_series[t]["4. close"]) for t in timestamps]
 
-            latest_timestamp = timestamps[0]  #
+            latest_timestamp = timestamps[0]
             latest_data = time_series[latest_timestamp]
-            latest_price = prices[0]  
-            avg_price = sum(prices) / len(prices)  
-
+            latest_price = prices[0]
+            avg_price = sum(prices) / len(prices)
             trend = "Trenutna cena je pod povprecjem" if latest_price < avg_price else "Trenutna cena je nad povprecjem"
             future_prices = predict_future(prices)
 
-            # Prikaži podatke v GUI
+            # ---  MongoDb ---
+            dokument = {
+                "symbol": stock_symbol,
+                "cas": latest_timestamp,
+                "open": float(latest_data["1. open"]),
+                "high": float(latest_data["2. high"]),
+                "low": float(latest_data["3. low"]),
+                "close": float(latest_data["4. close"]),
+                "volume": int(latest_data["5. volume"]),
+                "avg_price_5": avg_price,
+                "trend": trend
+            }
+            print("POŠILJAM V MONGO:", dokument) 
+            collection.insert_one(dokument)
+            # ----------------------------------
+
             result_label.config(
                 text=f"Podatki za {stock_symbol} ob {latest_timestamp}\n"
                      f"Najvišja cena: {latest_data['2. high']} USD\n"
@@ -59,20 +75,17 @@ def get_stock_data():
     else:
         messagebox.showerror("Napaka", f"API napaka: {response.status_code}")
 
-
 def predict_future(prices):
-    x = np.arange(len(prices))  
-    y = np.array(prices)  
+    x = np.arange(len(prices))
+    y = np.array(prices)
     coeffs = np.polyfit(x, y, 1)
     trend_line = np.poly1d(coeffs)
     future_x = np.arange(len(prices), len(prices) + 3)
     future_prices = trend_line(future_x)
     return future_prices
 
-
-# Funkcija graf
 def plot_graph(prices, future_prices):
-    plt.clf()  
+    plt.clf()
     x_past = np.arange(len(prices))
     x_future = np.arange(len(prices), len(prices) + len(future_prices))
     plt.plot(x_past, prices, "bo-", label="Zgodovinske cene")
@@ -81,7 +94,6 @@ def plot_graph(prices, future_prices):
     plt.ylabel("Cena (USD)")
     plt.title("Napoved gibanja cen delnice")
     plt.legend()
-
     canvas.draw()
 
 # ---Uporabniški vmesnik -----
@@ -93,14 +105,10 @@ tk.Label(root, text="Vnesi simbol delnice:").pack(pady=5)
 entry = tk.Entry(root)
 entry.pack(pady=5)
 
-# Gumb za pridobivanje podatkov
 tk.Button(root, text="Pridobi podatke", command=get_stock_data).pack(pady=10)
-
-# Prikaz rezultatov
 result_label = tk.Label(root, text="", justify="left")
 result_label.pack(pady=10)
 
-# Grafični prikaz
 fig, ax = plt.subplots(figsize=(5, 3))
 canvas = FigureCanvasTkAgg(fig, master=root)
 canvas.get_tk_widget().pack()
