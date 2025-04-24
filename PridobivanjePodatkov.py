@@ -4,10 +4,10 @@ from tkinter import messagebox
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from pymongo import MongoClient  # <-- Dodano
+from pymongo import MongoClient  
+from lstm_predictor import predict_lstm
 
-# MongoDB povezava
-client = MongoClient("mongodb+srv://haracicervin:<PASSWORD>@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")  # Uporabi svojo povezavo če uporabljaš MongoDB Atlas
+client = MongoClient("mongodb+srv://haracicervin:PASSWORD@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")  
 db = client["delnice_db"]
 collection = db["podatki_o_delnicah"]
 
@@ -19,6 +19,16 @@ def get_stock_data():
     if not stock_symbol:
         messagebox.showwarning("Napaka", "Prosim, vnesite simbol delnice!")
         return
+
+    documents = collection.find({"symbol": stock_symbol})
+    
+    if not documents:
+        messagebox.showerror("Napaka", f"Ni podatkov za simbol {stock_symbol}.")
+        return
+
+    # Pridobim vse "close" cene za ta simbol 
+    close_prices = [doc["close"] for doc in documents]
+    avg_close_price = sum(close_prices) / len(close_prices)
 
     params = {
         "function": "TIME_SERIES_INTRADAY",
@@ -40,11 +50,8 @@ def get_stock_data():
             latest_timestamp = timestamps[0]
             latest_data = time_series[latest_timestamp]
             latest_price = prices[0]
-            avg_price = sum(prices) / len(prices)
-            trend = "Trenutna cena je pod povprecjem" if latest_price < avg_price else "Trenutna cena je nad povprecjem"
-            future_prices = predict_future(prices)
+            trend = "Trenutna cena je pod povprecjem" if latest_price < avg_close_price else "Trenutna cena je nad povprecjem"        
 
-            # ---  MongoDb ---
             dokument = {
                 "symbol": stock_symbol,
                 "cas": latest_timestamp,
@@ -53,53 +60,58 @@ def get_stock_data():
                 "low": float(latest_data["3. low"]),
                 "close": float(latest_data["4. close"]),
                 "volume": int(latest_data["5. volume"]),
-                "avg_price_5": avg_price,
-                "trend": trend
             }
             print("POŠILJAM V MONGO:", dokument) 
             collection.insert_one(dokument)
-            # ----------------------------------
+
+
+            lstm_price = predict_lstm(stock_symbol, "mongodb+srv://haracicervin:PASSWORD@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")  # vstavi svoj mongo url
+            if lstm_price:
+                result_label.config(text=result_label.cget("text") + f"\nLSTM napoved: {lstm_price:.2f} USD")
+            else:
+                result_label.config(text=result_label.cget("text") + "\nLSTM napoved: premalo podatkov")
 
             result_label.config(
                 text=f"Podatki za {stock_symbol} ob {latest_timestamp}\n"
-                     f"Najvišja cena: {latest_data['2. high']} USD\n"
-                     f"Najnižja cena: {latest_data['3. low']} USD\n"
-                     f"Volumen: {latest_data['5. volume']}\n"
+                     f"Cena na začetku dneva: {latest_data['1. open']} USD\n"
+                     f"Najvišja cena na današnji dan: {latest_data['2. high']} USD\n"
+                     f"Najnižja cena na današnji dan: {latest_data['3. low']} USD\n"
+                     f"Število trgovnaih delnic (volumen): {latest_data['5. volume']}\n"
                      f"Zadnja cena: {latest_price} USD\n"
-                     f"Povprečna cena (5x): {avg_price:.2f} USD\n"
-                     f"Napoved: {trend}"
+                     f"Povprečna close cena : {avg_close_price:.2f} USD\n"
+                     f"Napoved glede na povprecje: {trend}\n"
+                     f"LSTM napoved: {lstm_price}"
             )
-            plot_graph(prices, future_prices)
+            plot_graph(close_prices, lstm_price)
         else:
             messagebox.showerror("Napaka", "Ni podatkov za izbrano delnico.")
     else:
         messagebox.showerror("Napaka", f"API napaka: {response.status_code}")
 
-def predict_future(prices):
-    x = np.arange(len(prices))
-    y = np.array(prices)
-    coeffs = np.polyfit(x, y, 1)
-    trend_line = np.poly1d(coeffs)
-    future_x = np.arange(len(prices), len(prices) + 3)
-    future_prices = trend_line(future_x)
-    return future_prices
 
-def plot_graph(prices, future_prices):
-    plt.clf()
-    x_past = np.arange(len(prices))
-    x_future = np.arange(len(prices), len(prices) + len(future_prices))
-    plt.plot(x_past, prices, "bo-", label="Zgodovinske cene")
-    plt.plot(x_future, future_prices, "ro--", label="Napovedane cene")
-    plt.xlabel("Časovni intervali")
-    plt.ylabel("Cena (USD)")
-    plt.title("Napoved gibanja cen delnice")
-    plt.legend()
+def plot_graph(close_prices, lstm_price):
+    plt.clf()  
+
+    ax = plt.gca()  
+
+    x_past = np.arange(len(close_prices))
+    ax.plot(x_past, close_prices, "bo-", label="Zgodovinske cene")
+
+    # Določim zadnjo ceno kot LSTM napoved 
+    ax.plot(len(close_prices), lstm_price, "ro", label=f"LSTM napoved: {lstm_price:.2f} USD")
+
+    ax.set_xlabel("Časovni intervali")
+    ax.set_ylabel("Cena (USD)")
+    ax.set_title("Zgodovinske cene in LSTM napoved")
+    ax.legend()
+
     canvas.draw()
+
 
 # ---Uporabniški vmesnik -----
 root = tk.Tk()
 root.title("Delniški podatki")
-root.geometry("500x600")
+root.geometry("500x800")
 
 tk.Label(root, text="Vnesi simbol delnice:").pack(pady=5)
 entry = tk.Entry(root)
@@ -108,6 +120,7 @@ entry.pack(pady=5)
 tk.Button(root, text="Pridobi podatke", command=get_stock_data).pack(pady=10)
 result_label = tk.Label(root, text="", justify="left")
 result_label.pack(pady=10)
+
 
 fig, ax = plt.subplots(figsize=(5, 3))
 canvas = FigureCanvasTkAgg(fig, master=root)
