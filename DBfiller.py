@@ -3,7 +3,7 @@ import pymongo
 from pymongo import MongoClient
 import datetime
 
-client = MongoClient("mongodb+srv://haracicervin:PASSWORD@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+client = MongoClient("mongodb+srv://haracicervin:HdUwE4OAlBxJV1Qi@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = client["delnice_db"]
 collection = db["podatki_o_delnicah"]
 

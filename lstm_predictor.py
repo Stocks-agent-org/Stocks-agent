@@ -17,7 +17,7 @@ def predict_lstm(symbol, mongo_url):
     df = pd.DataFrame(data)
     prices = df["close"].values.reshape(-1, 1)
 
-    scaler = MinMaxScaler()
+    scaler = MinMaxScaler() #Ta del spremeni cene tako, da se nahajajo v območju [0, 1]:
     scaled_prices = scaler.fit_transform(prices)
 
     x = np.arange(len(scaled_prices)).reshape(-1, 1)
