@@ -8,7 +8,7 @@ from pymongo import MongoClient
 from lstm_predictor import predict_lstm
 
 # ------------------- Povezava z MongoDB -------------------
-mongo_url = "mongodb+srv://haracicervin:HdUwE4OAlBxJV1Qi@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+mongo_url = "mongodb+srv://haracicervin:password@cluster0.bun7is9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(mongo_url)
 db = client["delnice_db"]
 collection = db["podatki_o_delnicah"]
@@ -17,19 +17,18 @@ API_KEY = "UO0OIPK3VT2AUW8W"
 BASE_URL = "https://www.alphavantage.co/query"
 
 # ------------------- Funkcija za prikaz grafa -------------------
-def plot_graph(close_prices, lstm_price, dates, parent):  # 🔄 dodani datumi
+def plot_graph(close_prices, lstm_price, dates, parent): 
     fig, ax = plt.subplots(figsize=(6, 3))
-    x_past = dates  # uporabimo dejanske datume kot X
+    x_past = dates  
 
     ax.plot(x_past, close_prices, "bo-", label="Zgodovinske cene")
     ax.plot(dates[-1], lstm_price, "ro", label=f"LSTM napoved: {lstm_price:.2f} USD")
     ax.plot(
-        [dates[-1], "LSTM"],  # Dodaš "umeten" datum za LSTM
+        [dates[-1], "LSTM"], 
         [close_prices[-1], lstm_price],
         "r--", linewidth=2
     )
 
-    # Prikažemo samo vsakih 5 datumov
     xticks_to_show = [i for i in range(len(dates)) if i % 7 == 0]
     xtick_labels = [dates[i] if i in xticks_to_show else "" for i in range(len(dates))]
 
@@ -41,11 +40,10 @@ def plot_graph(close_prices, lstm_price, dates, parent):  # 🔄 dodani datumi
     ax.set_xlabel("Datum")
     ax.set_ylabel("Cena (USD)")
     ax.set_title("Zgodovinske cene in LSTM napoved")
-    # Poudari vsako 7. črtico na X-osi
     for i, tick in enumerate(ax.xaxis.get_major_ticks()):
         if i % 7 == 0:
-            tick.tick1line.set_markersize(10)  # spodnja črtica
-            tick.tick2line.set_markersize(10)  # zgornja črtica
+            tick.tick1line.set_markersize(10)  
+            tick.tick2line.set_markersize(10)  
             tick.tick1line.set_linewidth(1.5)
             tick.tick2line.set_linewidth(1.5)
 
@@ -70,12 +68,11 @@ def get_stock_data():
 
     close_prices = []
     dates = []
-    for doc in documents:  # 🔄 zgradimo seznam datumov in cen
+    for doc in documents: 
         if "close" in doc and "date" in doc:
             close_prices.append(doc["close"])
             dates.append(doc["date"])
 
-    # 🔃 Sortiraj po datumu naraščajoče
     sorted_data = sorted(zip(dates, close_prices), key=lambda x: x[0])
     dates, close_prices = zip(*sorted_data)
 
@@ -110,7 +107,7 @@ def get_stock_data():
             dokument = {
                 "symbol": stock_symbol,
                 "cas": latest_timestamp,
-                "date": latest_timestamp.split(" ")[0],  # 🔄 zabeležimo datum posebej
+                "date": latest_timestamp.split(" ")[0],  
                 "open": float(latest_data["1. open"]),
                 "high": float(latest_data["2. high"]),
                 "low": float(latest_data["3. low"]),
@@ -121,7 +118,6 @@ def get_stock_data():
 
             lstm_price = predict_lstm(stock_symbol, mongo_url)
 
-            # --- Počisti stare okvirje ---
             for widget in root.winfo_children():
                 if hasattr(widget, "is_dynamic") and widget.is_dynamic:
                     widget.destroy()
@@ -152,7 +148,7 @@ def get_stock_data():
             graph_frame.place(relx=0.5, rely=0.6, anchor="n")
             graph_frame.is_dynamic = True
 
-            plot_graph(close_prices, lstm_price or latest_price, dates, graph_frame)  # 🔄 posredujemo datume
+            plot_graph(close_prices, lstm_price or latest_price, dates, graph_frame)  
         else:
             messagebox.showerror("Napaka", "Ni podatkov za izbrano delnico.")
     else:
