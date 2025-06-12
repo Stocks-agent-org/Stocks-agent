@@ -126,6 +126,7 @@ Da bi kar najbolj natančno napovedali gibanje cene delnice (tako absolutne vred
 
     **Rolling-window**  
        - Podatke smo razdelil po mesecih in izvedeli 11 korakov: za vsak par zaporednih mesecev smo model izučili na prvem mesecu (20 iteracij) in ga preizkusil na naslednjem.  
+    
     **Čisti GRU**  
        - Predhodna normalizacija: vse vrednosti smo skalirali v [0, 1] glede na učni sklop.  
        - Arhitektura:  
