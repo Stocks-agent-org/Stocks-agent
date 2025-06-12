@@ -100,7 +100,8 @@ Da bi kar najbolj natančno napovedali gibanje cene delnice (tako absolutne vred
 ### Potek eksperimenta
 
 1. **Priprava podatkov**  
-   - Ustvarili smo vzorce, kjer vsak vzorec vsebuje tri zaporedne dnevne zaključne cene in ciljno naslednjo ceno.  
+   - Ustvarili smo vzorce, kjer vsak vzorec vsebuje tri zaporedne dnevne zaključne cene in ciljno naslednjo ceno.
+   - Korpus podatkov obsega vsak dan med 2023-03-25 in 2025-03-23 pri čemer smo uporabljali "close".  
 
 2. **Razdelitev na sklope**  
    - Prvih 80 % smo uporabili za učenje, naslednjih 10 % za validacijo in zadnjih 10 % za testiranje.  
